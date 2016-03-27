@@ -12,7 +12,7 @@ To use the library place the Buttons directory in your Arduino>libraries directo
 #include <EEPROM.h>
 ```
 
-to your sketch. 
+to your sketch. Eeprom is needed to persist values between power-ups.
 
 # Setting up the resistor ladder
 
