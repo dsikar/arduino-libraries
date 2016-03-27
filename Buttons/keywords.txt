@@ -1,0 +1,7 @@
+Buttons	KEYWORD1
+checkButtons	KEYWORD2
+addNode	KEYWORD2
+changed	KEYWORD2
+getNodeVal	KEYWORD2
+setNodeVal	KEYWORD2
+getNodePos	KEYWORD2

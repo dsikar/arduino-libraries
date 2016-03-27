@@ -1,45 +1,98 @@
 /*
-  Buttons.cpp - Select, increase and decrease library.
+  Buttons.cpp - Select node, increase and decrease node value library.
 */
 
 #include "Arduino.h"
 #include "Buttons.h"
 
-// Buttons(int iPin, int iNoise, int iSwitchSelect, int iSwitchInc, int iSwitchDec, int iMax, int iMin, int iStep, int iNodes);
-Buttons::Buttons(int ipn, int inz, int iss, int isi, int isd, int imx, int imn, int ist, int inds)
+// Buttons(int iPin, int iNoise, int iSwitchSelect, int iSwitchInc, int iSwitchDec, int iNodes);
+Buttons::Buttons(int ipn, int inz, int iss, int isi, int isd, int inds) 
 {
   // pinMode(pin, OUTPUT);
+  // the analog input pin reading tension as a byte volue (0-255) on the resistor ladded (see diagram)
   iPin = ipn;
+  // +- iNoise are considered noise. NB, value needs to be chosen such that it agrees with analogue reading
+  // e.g. if the resistor ladder produces AD conversions around 210 and 420. Observe variations due to noise.
+  // In this example, noise is not expected to be greater than (420 - 210) / 2 = 100 as upper and lower limits
+  // would overlap e.g.  if noise was reached 101 max in the circuit; 210 + 101 = 311 and 420 - 101 = 311
+  // The algorithm would produce an "increase button pressed" and a "decrease value button pressed" result, messing
+  // up the logic.
   iNoise = inz;
+  // The analogue reading expected for a switch button press
   iSwitchSelect = iss;
+  // The analogue reading expected for a decrease button press
   iSwitchInc = isi;
+  // The analogue reading expected for an increase button press
   iSwitchDec = isd;
-  iMax = imx;
-  iMin = imn;
-  iStep = ist;
+  //iMax = imx;
+  //iMin = imn;
+  //iStep = ist;
+  // Number of nodes base 1
   iNodes = inds;
+  // Change to base 0
+  iNodes--;
+  // button press flag
   bButtonPressed = false;
+  // button release flag, TODO find descriptive name
   bChange = false;
-  // read temperature from eeprom, NB 1 byte values between 0-255. If a higher range is required, 
-  // extra coding will also be required to split value before storing and assembling value after reading.
+  // set the size of stored value in bytes ~ 2 bytes 
+  iStoredValSizeInBytes = 2;
 
-  // New a loop here to populate our iTemp array
+  // Populate the node array with the stored 2 byte values ~ uint16_t 
   for(int i = 0; i <= iNodes; i++) {
-    iNode[i] = EEPROM.read(i);
+    byte bHigh = EEPROM.read(i * iStoredValSizeInBytes); // if i == 0, read eeprom at address 0 
+    byte bLow = EEPROM.read(i * iStoredValSizeInBytes + 1); // and address 1, etc
+    int iVal = (bHigh << 8) | bLow ;
+    // iNode[i] = EEPROM.read(i); // this would be the code, if one byte sufficed
+    iNode[i] = iVal;
   } 
 
-  // get the last array position stored
-  iNodePos = EEPROM.read(iNodes + 1);
+  // get the last iNodePos position stored. One byte should be enough to store, unless more than 255 nodes 
+  // are required, which probably is more than a resistor ladded can accomodate.
+
+  // iNodePos = EEPROM.read((iNodes + 1) * iStoredValSizeInBytes); // One byte
+  // Get iNodes back to base 1 e.g. 3 nodes, then multiply by the size of our stored values,
+  // in this case 2 bytes. This takes us to EEPROM address 6 i.e. addresses 0 to 5 store 3 distinct
+  // 2 byte values, while address 6 holds the position of the last accessed node.
+  iNodePos = EEPROM.read((iNodes + 1) * iStoredValSizeInBytes);
+
+  // Get the lowest expected AD reading;
+  iLowestADReading = (iSwitchSelect < iSwitchInc ? iSwitchSelect : iSwitchInc);
+  iLowestADReading = (iLowestADReading < iSwitchDec ? iLowestADReading : iSwitchDec);
  
-  // eepromTempAddress = 0;
-  // iTemp = EEPROM.read(eepromTempAddress); 
 } 
 
-int Buttons::initTemp()
+/*
+void Buttons::addNode(int iMn, int iMx, int iSp, int iDx)
+
+Add a node with attributes minimum value, maximum value, step and index (array position)
+Note, iDx is base 1 and changed here to base 0
+*/
+void Buttons::addNode(int iMn, int iMx, int iSp, int iDx)
 {
-   return iNode;  
+  iDx--;
+  iMin[iDx] = iMn;
+  iMax[iDx] = iMx;
+  iStep[iDx] = iSp;
 }
 
+/*
+  Application will call this member function to set the initial node
+  selection on the user interface.
+*/
+int Buttons::getNodePos()
+{
+  // convert to base 1
+  return iNodePos + 1;  
+}
+
+/*
+void Buttons::checkButtons()
+
+This member function is placed in the main loop
+and checks if any temporary switches placed in the resistor
+ladder are pressed.
+*/
 void Buttons::checkButtons()
 {
   int iRead = 0;
@@ -47,7 +100,7 @@ void Buttons::checkButtons()
   int i;
   // ten successive analogue readings, use max
   for(i=0; i<10; i++) {
-    iRead = analogRead(pin);
+    iRead = analogRead(iPin);
     if (iRead > iMaxRead) {
       iMaxRead = iRead;
     }
@@ -61,62 +114,87 @@ void Buttons::checkButtons()
   // was increase button pressed?
   bIncrease = (iRead <= iSwitchInc + iNoise && iRead >= iSwitchInc - iNoise && !bButtonPressed ? true : false);
   
-  // need a flag here to let us know in what array position we are
-  // CODE GOES HERE
+  // case 1: select button was pressed (change node)
   if(bSelect) {
-
-
-  }
-  // case 1: < button was pressed (decrease speed)
-  if(bDecrease) {
-	iTemp = (iTemp > iMinTemp ? iTemp - iTempStep : iMinTemp);
+    iNodePos = (iNodePos + 1 > iNodes ? 0 : iNodePos + 1);
     bButtonPressed = true;
   }
-  // case 2: > button was pressed (increase speed)
+  // case 2: descrease button was pressed (decrease value)
+  if(bDecrease) {
+	iNode[iNodePos] = (iNode[iNodePos] > iMin[iNodePos] ? iNode[iNodePos] - iStep[iNodePos] : iMin[iNodePos]);
+    bButtonPressed = true;
+  }
+  // case 2: increase button was pressed (increase vlue)
   if(bIncrease) {
-	iTemp = (iTemp < iMaxTemp ? iTemp + iTempStep : iMaxTemp);
+	iNode[iNodePos] = (iNode[iNodePos] < iMax[iNodePos] ? iNode[iNodePos] + iStep[iNodePos] : iMax[iNodePos]);
     bButtonPressed = true;
   }
   
   // check if button was released after it was pressed
-  // e.g. if the reading is less than the lowest 
-  // interpretable reading, then the button has been released. 
-  // ROOM FOR IMPROVEMENT
-  // using the (hardcoded) lowest iSwitchSelect value, need to make it dynamic.
-  if( iRead < (iSwitchSelect - iNoise) && bButtonPressed ) {
-       bChangeTemp = true;
+  // e.g. if the AD reading is less than the lowest 
+  // interpretable AD reading, then the button has been released. 
+  if( iRead < (iLowestADReading - iNoise) && bButtonPressed ) {
+       bChange = true;
   }
 }
 
-bool Buttons::changedTemp()
+/*
+  bool Buttons::changed()
+  Application uses this member function in main loop to check
+  for temporary switch presses.
+*/
+bool Buttons::changed()
 {
-	return bChangeTemp;
+	return bChange;
 }
 
-int Buttons::getTemp()
+/*
+  int getNodeVal(int iNd)
+  Get the value stored in a given node.
+*/
+int Buttons::getNodeVal(int iNd)
+{
+  // convert index to base 0
+  iNd--;
+  return iNode[iNd];
+}
+
+int Buttons::setNodeVal()
 {
   // reset the button
   bButtonPressed = false;
   // reset change flag
   bChange = false;
-  // write to EEPROM
-  //EEPROM.write(eepromTempAddress, iTemp);
-  for(int i = 0; i <= iNodes; i++) {
-    EEPROM.write(i, iNode[i]);
-  } 
+  // write to EEPROM the current node position and value
+  //  array[0]=value & 0xff;
+  //  array[1]=(value >> 8);
+
+  //    byte bHigh = EEPROM.read(i * 2);
+  //  byte bLow = EEPROM.read(i * 2 + 1);
+
+  uint16_t uIval= iNode[iNodePos];
+  byte bLow = uIval & 0xff;
+  byte bHigh = (uIval >> 8);
+  EEPROM.write(iNodePos * iStoredValSizeInBytes, bHigh);
+  EEPROM.write(iNodePos * iStoredValSizeInBytes + 1, bLow);
+  // EEPROM.write(iNodePos, iNode[iNodePos]);
   // write the array position to eeprom
-  EEPROM.write(iNodes + 1, iNodePos);
-  // return the array
-  return iNode;
+
+
+  EEPROM.write((iNodes + 1) * iStoredValSizeInBytes, iNodePos);
+  // return the changed value NB application needs to call the node position
+  // to deal with result
+  return iNode[iNodePos];
 }
 
  /*
- *	In the configuration below, when switch SW1 is shortened
- *  the AD conversion (10 bits, 0 to 1024) is 420.
- *  When SW2 is shortened, the reading is 210.
- *  If the circuit is modified, then the values must be adjusted
+ *	In the configuration below, when switch INC is shortened
+ *  the AD conversion (10 bits, 0 to 1024) is 440 approx.
+ *  When DEC is shortened, the reading is 260 approx.
+ *  When INC is shortened, the reading is 160 approx.
+ *  If the resistor ladded is modified, values must be adjusted
  *  accordingly when instantiating the object e.g.
- *  Buttons buttons(0, 30, 420, 210, 220, 0, 5);
+ *  Buttons buttons(iPin, iNoise, iSwitchSelect, iSwitchInc, iSwitchDec, iNodes);
  *
  *   Schematic:                         AD conversion
  *
@@ -126,16 +204,23 @@ int Buttons::getTemp()
  *      ----------------          /  
  *                     |          \  10K 
  *                     |          /
- *                     |          \  420 (expected 10 bit analogue read value)
+ *                     |          \  440 (expected 10 bit analogue read value)
  *                     |____ \____| 
- *                     |   SW1    |         
+  *                    |   INC    |         
  *                     |          \
  *                     |          /  
  *                     |          \  10K
  *                     |          /
  *                     |          \
- *                     |____ \____|  210 (expected 10 bit analogue read value)
- *                     |   SW2    |
+ *                     |____ \____|  260 (expected 10 bit analogue read value
+ *                     |   DEC    |         
+ *                     |          \
+ *                     |          /  
+ *                     |          \  10K
+ *                     |          /
+ *                     |          \
+ *                     |____ \____|  160 (expected 10 bit analogue read value)
+ *                     |   SEL    |
  *                     \          \
  *                     /          /  
  *                     \  10K     \  10K (pull down resistors)
