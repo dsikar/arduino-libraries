@@ -5,7 +5,7 @@ This provides a library for setting up temporary switches (buttons) in a resisto
 
 # Adding the library to your sketch
 
-To use the library clone place the Buttons directory in your Arduino>libraries directory the add includes:
+To use the library place the Buttons directory in your Arduino>libraries directory the add includes:
 
 ```
 #include <Buttons.h>
@@ -34,7 +34,7 @@ Buttons.cpp includes a schematic:
                     |          \  10K
                     |          /
                     |          \
-                    |____ \____|  260 (expected 10 bit analogue read value
+                    |____ \____|  260 (expected 10 bit analogue read value)
                     |   DEC    |         
                     |          \
                     |          /  
@@ -59,7 +59,7 @@ One a breadboard this would look similar to:
 
 ![Breadboard wiring](images/3ButtonResistorLadder.png)
 
-Once all is hooked up, upload the sketch and open a Serial Monitor and nodes may be selected and values changed, using the three button configuration:  
+Once all is hooked up, upload the sketch and open a Serial Monitor. Nodes may be selected and values changed, using the three button configuration:  
 
 ![Serial Monitor](images/SerialMonitor.png)
 
