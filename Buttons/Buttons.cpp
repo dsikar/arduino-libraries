@@ -38,23 +38,13 @@ Buttons::Buttons(int ipn, int inz, int iss, int isi, int isd, int inds)
   // set the size of stored value in bytes ~ 2 bytes 
   iStoredValSizeInBytes = 2;
 
-  // Populate the node array with the stored 2 byte values ~ uint16_t 
+  // Populate the node array with 0's since the due has no EEPROM
   for(int i = 0; i <= iNodes; i++) {
-    byte bHigh = EEPROM.read(i * iStoredValSizeInBytes); // if i == 0, read eeprom at address 0 
-    byte bLow = EEPROM.read(i * iStoredValSizeInBytes + 1); // and address 1, etc
-    int iVal = (bHigh << 8) | bLow ;
-    // iNode[i] = EEPROM.read(i); // this would be the code, if one byte sufficed
-    iNode[i] = iVal;
+    iNode[i] = 0;
   } 
 
-  // get the last iNodePos position stored. One byte should be enough to store, unless more than 255 nodes 
-  // are required, which probably is more than a resistor ladded can accomodate.
-
-  // iNodePos = EEPROM.read((iNodes + 1) * iStoredValSizeInBytes); // One byte
-  // Get iNodes back to base 1 e.g. 3 nodes, then multiply by the size of our stored values,
-  // in this case 2 bytes. This takes us to EEPROM address 6 i.e. addresses 0 to 5 store 3 distinct
-  // 2 byte values, while address 6 holds the position of the last accessed node.
-  iNodePos = EEPROM.read((iNodes + 1) * iStoredValSizeInBytes);
+  // set the node position to 0 - first node
+  iNodePos = 0;
 
   // Get the lowest expected AD reading;
   iLowestADReading = (iSwitchSelect < iSwitchInc ? iSwitchSelect : iSwitchInc);
@@ -165,23 +155,6 @@ int Buttons::setNodeVal()
   bButtonPressed = false;
   // reset change flag
   bChange = false;
-  // write to EEPROM the current node position and value
-  //  array[0]=value & 0xff;
-  //  array[1]=(value >> 8);
-
-  //    byte bHigh = EEPROM.read(i * 2);
-  //  byte bLow = EEPROM.read(i * 2 + 1);
-
-  uint16_t uIval= iNode[iNodePos];
-  byte bLow = uIval & 0xff;
-  byte bHigh = (uIval >> 8);
-  EEPROM.write(iNodePos * iStoredValSizeInBytes, bHigh);
-  EEPROM.write(iNodePos * iStoredValSizeInBytes + 1, bLow);
-  // EEPROM.write(iNodePos, iNode[iNodePos]);
-  // write the array position to eeprom
-
-
-  EEPROM.write((iNodes + 1) * iStoredValSizeInBytes, iNodePos);
   // return the changed value NB application needs to call the node position
   // to deal with result
   return iNode[iNodePos];

@@ -3,9 +3,7 @@
 */
 #ifndef Buttons_h
 #define Buttons_h
-
 #include "Arduino.h"
-#include <EEPROM.h>
 
 class Buttons
 {
