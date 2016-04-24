@@ -74,6 +74,14 @@ void Buttons::addNode(int iMn, int iMx, int iSp, int iDx)
   iMin[iDx] = iMn;
   iMax[iDx] = iMx;
   iStep[iDx] = iSp;
+  // set node value to minimum value if current value is less than iMn;
+  if(iNode[iDx] < iMn) {
+    iNode[iDx] = iMn;
+  }
+  // conversely, if current node value is greater than max value, set node value to iMx;
+  if(iNode[iDx] > iMx) {
+    iNode[iDx] = iMx;
+  }    
 }
 
 /*
