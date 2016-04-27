@@ -48,7 +48,7 @@ Buttons::Buttons(int ipn, int inz, int iss, int isi, int isd, int inds)
   } 
 
   // get the last iNodePos position stored. One byte should be enough to store, unless more than 255 nodes 
-  // are required, which probably is more than a resistor ladded can accomodate.
+  // are required, which probably is more than a resistor ladder can accomodate.
 
   // iNodePos = EEPROM.read((iNodes + 1) * iStoredValSizeInBytes); // One byte
   // Get iNodes back to base 1 e.g. 3 nodes, then multiply by the size of our stored values,
